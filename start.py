@@ -19,7 +19,7 @@ from aiogram.types import Message
 from datetime import datetime
 
 # Инициализация бота и диспетчера
-bot = Bot(token='7139072705:AAFmOzwzRlSRAIJvcUdem8Tjw0wseGPFJkg')
+bot = Bot(token='7139072705:AAFmOzwzRlSRAIJvcUdem8Tjw0wseGPFJkg', timeout=300)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
@@ -167,4 +167,5 @@ async def main():
 
 if __name__ == "__main__":
     import asyncio
+
     asyncio.run(main())
