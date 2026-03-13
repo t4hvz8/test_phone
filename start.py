@@ -5,10 +5,16 @@
 
 import datetime
 import asyncio
+import sqlite3
+import os
 
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types.input_file import FSInputFile
 
 from datetime import datetime
 
@@ -19,16 +25,122 @@ dp = Dispatcher(storage=storage)
 
 
     
+class user_message(StatesGroup):
+    save = State()
 
-
+with sqlite3.connect('test.db') as con:
+    cur = con.cursor()
+    cur.execute('''
+    CREATE TABLE IF NOT EXISTS data(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            us_idtg VARCHAR (20), 
+            us_text VARCHAR (40), 
+            us_blob BLOB,
+            us_datetime VARCHAR (30)
+            )''')
+    con.commit()    
 
 
 # Обработчик команды /start
 @dp.message(Command("start"))
-async def start(message: types.Message):
-    now = datetime.now()
-    await message.answer (f"<i>Привет, я тут!</i>\nСейчас у меня {now}", parse_mode="HTML")
+async def start(message: types.Message, state: FSMContext):
+    if state:
+        await state.clear()
+    name = message.chat.first_name
+    await state.set_state(user_message.save)
+    await message.answer (f"Привет, {name}!\nВоди мне текст или фото и я сохраню", parse_mode="HTML")
+
+@dp.message(Command("file"))
+async def start(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    if state:
+        await state.clear()
+    path = f'test.db'
+    document = FSInputFile(path)
+    await bot.send_document(chat_id=user_id, document=document, caption="файл базы", parse_mode="HTML")
+
+    name = message.chat.first_name
+    await state.set_state(user_message.save)
+    await message.answer (f"Привет, {name}!\nВоди мне текст или фото и я сохраню", parse_mode="HTML")
+
+@dp.callback_query()
+async def process_callback(callback_query: types.CallbackQuery, state: FSMContext):
+    data = callback_query.data
     
+    if data == "OK":
+        await callback_query.answer()
+        if state:
+            await state.clear()
+        name = callback_query.from_user.first_name
+        await bot.send_message (f"Привет, {name}!\nВоди мне текст или фото и я сохраню", parse_mode="HTML")
+
+@dp.message(user_message.save)
+async def finish_task(message: Message, state: FSMContext):
+    user_id = message.from_user.id
+    if is_image_message(message):
+        # Пользователь прислал фото
+        if message.caption:
+            # Есть описание к фото - сохраняем описание в .txt
+            description = message.caption
+            with sqlite3.connect(f'test.db') as con:
+                cur = con.cursor()
+                cur.execute(f'INSERT INTO data (us_idtg, us_text) VALUES (?)', (user_id, description))
+                con.commit()
+        # Сохраняем фото
+        photo = message.photo[-1]  # Берем фото с самым высоким разрешением
+        file_id = photo.file_id
+        file = await bot.get_file(file_id)
+        file_path = file.file_path
+        download_path = os.path.join('temp', f"image_{user_id}.jpg")
+        await bot.download_file(file_path, destination=download_path)
+        done = save_finish_photo(user_id)
+        if done:
+            board = InlineKeyboardBuilder()
+            board.add(types.InlineKeyboardButton(text="OK", callback_data="OK")) 
+            await bot.send_message(
+                chat_id=user_id,
+                text="Принято, записано, можно продолжать",
+                parse_mode="HTML",
+                reply_markup=board.as_markup()
+            )
+
+    elif message.text:
+        description = message.text
+        with sqlite3.connect('test.db') as con:
+            cur = con.cursor()
+            cur.execute(f'INSERT INTO data (us_idtg, us_text) VALUES (?)', (user_id, description))
+            con.commit()
+        board = InlineKeyboardBuilder()
+        board.add(types.InlineKeyboardButton(text="OK", callback_data="OK")) 
+        await bot.send_message(
+            chat_id=user_id,
+            text="Принято, записано, можно продолжать",
+            parse_mode="HTML",
+            reply_markup=board.as_markup()
+        )
+
+def save_finish_photo(user_id):
+    image_path = f'temp/image_{user_id}.jpg'
+    with open(image_path, 'rb') as file:
+        photo = file.read()
+    with sqlite3.connect(f'test.db') as con:
+        cur = con.cursor()
+        cur.execute(f'INSERT INTO data (us_blob) VALUES (?)', [photo])
+        con.commit()
+    return True
+
+
+
+
+
+
+
+
+
+def is_image_message(message: types.Message) -> bool:
+    return bool(message.photo)
+
+
 async def main():
     await dp.start_polling(bot)
 
