@@ -57,12 +57,22 @@ async def start(message: types.Message, state: FSMContext):
 @dp.message(Command("file"))
 async def start(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
+    name = message.chat.first_name
     print(f"{user_id} запросил файл БД")
     if state:
         await state.clear()
-    path = 'test.db'
-    document = FSInputFile(path)
-    await bot.send_document(chat_id=user_id, document=document, caption="файл базы", parse_mode="HTML")
+    file_path = "test.db"
+    try:
+        size_bytes = os.path.getsize(file_path)
+        size_mb = size_bytes / (1024 * 1024)
+        print(f"размер файла {size_mb}mb. Начинаю отправку")
+        document = FSInputFile(file_path)
+        await bot.send_document(chat_id=user_id, document=document, caption="файл базы", parse_mode="HTML")
+    except FileNotFoundError:
+        await message.answer (f"Привет, {name}!\nБеда бедовая, файл не найдет", parse_mode="HTML")
+    except OSError as e:
+        await message.answer (f"Привет, {name}!\nБеда бедовая, ошибка {e}", parse_mode="HTML")
+    
 
 @dp.callback_query()
 async def process_callback(callback_query: types.CallbackQuery, state: FSMContext):
