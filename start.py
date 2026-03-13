@@ -85,7 +85,7 @@ async def finish_task(message: Message, state: FSMContext):
             description = message.caption
             with sqlite3.connect(f'test.db') as con:
                 cur = con.cursor()
-                cur.execute(f'INSERT INTO data (us_idtg, us_text) VALUES (?)', (user_id, description))
+                cur.execute(f'INSERT INTO data (us_idtg, us_text) VALUES (?, ?)', (user_id, description))
                 con.commit()
         # Сохраняем фото
         photo = message.photo[-1]  # Берем фото с самым высоким разрешением
