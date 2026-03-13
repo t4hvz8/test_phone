@@ -82,52 +82,38 @@ async def process_callback(callback_query: types.CallbackQuery, state: FSMContex
 async def finish_task(message: Message, state: FSMContext):
     user_id = message.from_user.id
     current_time = datetime.now().strftime("%d.%m.%Y %H:%M")
+    
     if is_image_message(message):
         print(f"{user_id} прислал картинку")
-        # Пользователь прислал фото
-        if message.caption:
-            print(f"{user_id} у картинки есть описание")
-            # Есть описание к фото - сохраняем описание в .txt
-            description = message.caption
-            with sqlite3.connect('test.db') as con:
-                cur = con.cursor()
-                cur.execute(f'INSERT INTO data (us_idtg, us_text, us_datetime) VALUES (?, ?, ?)', (user_id, description, current_time))
-                con.commit()
-                print("Записал описание в БД")
+        
+        # Получаем описание, если оно есть
+        description = message.caption if message.caption else ""
+        
         # Сохраняем фото
         photo = message.photo[-1]  # Берем фото с самым высоким разрешением
         file_id = photo.file_id
         file = await bot.get_file(file_id)
         file_path = file.file_path
-        download_path = os.path.join('temp', f"image_{user_id}.jpg")
+        download_path = os.path.join('temp', f"image_{user_id}_{current_time.replace(':', '-')}.jpg")
         await bot.download_file(file_path, destination=download_path)
-        done = save_finish_photo(user_id)
-        if done:
-            board = InlineKeyboardBuilder()
-            board.add(types.InlineKeyboardButton(text="OK", callback_data="OK")) 
-            await bot.send_message(
-                chat_id=user_id,
-                text="Принято, записано, можно продолжать",
-                parse_mode="HTML",
-                reply_markup=board.as_markup()
-            )
-        else:
-            board = InlineKeyboardBuilder()
-            board.add(types.InlineKeyboardButton(text="OK", callback_data="OK")) 
-            await bot.send_message(
-                chat_id=user_id,
-                text="<b>НЕ ЗАПИСАНО</b>, можно продолжать",
-                parse_mode="HTML",
-                reply_markup=board.as_markup()
-            )
-    elif message.text:
-        print(f"{user_id} прислал текст")
-        description = message.text
+        
+        # Читаем фото для сохранения в БД
+        with open(download_path, 'rb') as file:
+            photo_data = file.read()
+        
+        # Сохраняем в БД одной записью
         with sqlite3.connect('test.db') as con:
             cur = con.cursor()
-            cur.execute(f'INSERT INTO data (us_idtg, us_text, us_datetime) VALUES (?, ?, ?)', (user_id, description, current_time))
+            cur.execute(
+                'INSERT INTO data (us_idtg, us_text, us_blob, us_datetime) VALUES (?, ?, ?, ?)', 
+                (user_id, description, photo_data, current_time)
+            )
             con.commit()
-            print(f"текст записан")
+            print(f"Записал картинку и описание в БД")
+        
+        # Удаляем временный файл
+        os.remove(download_path)
+        
         board = InlineKeyboardBuilder()
         board.add(types.InlineKeyboardButton(text="OK", callback_data="OK")) 
         await bot.send_message(
@@ -136,30 +122,27 @@ async def finish_task(message: Message, state: FSMContext):
             parse_mode="HTML",
             reply_markup=board.as_markup()
         )
-
-def save_finish_photo(user_id):
-    image_path = f'temp/image_{user_id}.jpg'
-    with open(image_path, 'rb') as file:
-        photo = file.read()
-    with sqlite3.connect(f'test.db') as con:
-        cur = con.cursor()
-        done = cur.execute(f'INSERT INTO data (us_blob) VALUES (?)', [photo])
-        con.commit()
         
-    if done:
-        print("Записал картинку в БД")
-        return True
-    else:
-        print("Не записал картинку в БД")
-        return False
-
-
-
-
-
-
-
-
+    elif message.text:
+        print(f"{user_id} прислал текст")
+        description = message.text
+        with sqlite3.connect('test.db') as con:
+            cur = con.cursor()
+            cur.execute(
+                'INSERT INTO data (us_idtg, us_text, us_datetime) VALUES (?, ?, ?)', 
+                (user_id, description, current_time)
+            )
+            con.commit()
+            print(f"текст записан")
+            
+        board = InlineKeyboardBuilder()
+        board.add(types.InlineKeyboardButton(text="OK", callback_data="OK")) 
+        await bot.send_message(
+            chat_id=user_id,
+            text="Принято, записано, можно продолжать",
+            parse_mode="HTML",
+            reply_markup=board.as_markup()
+        )
 
 def is_image_message(message: types.Message) -> bool:
     return bool(message.photo)
