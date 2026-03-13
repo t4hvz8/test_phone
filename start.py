@@ -83,6 +83,7 @@ async def process_callback(callback_query: types.CallbackQuery, state: FSMContex
 @dp.message(user_message.save)
 async def finish_task(message: Message, state: FSMContext):
     user_id = message.from_user.id
+    current_time = datetime.now().strftime("%d.%m.%Y %H:%M")
     if is_image_message(message):
         # Пользователь прислал фото
         if message.caption:
@@ -90,7 +91,7 @@ async def finish_task(message: Message, state: FSMContext):
             description = message.caption
             with sqlite3.connect(f'test.db') as con:
                 cur = con.cursor()
-                cur.execute(f'INSERT INTO data (us_idtg, us_text) VALUES (?, ?)', (user_id, description))
+                cur.execute(f'INSERT INTO data (us_idtg, us_text, us_datetime) VALUES (?, ?, ?)', (user_id, description, current_time))
                 con.commit()
         # Сохраняем фото
         photo = message.photo[-1]  # Берем фото с самым высоким разрешением
@@ -109,13 +110,21 @@ async def finish_task(message: Message, state: FSMContext):
                 parse_mode="HTML",
                 reply_markup=board.as_markup()
             )
-
+        else:
+            board = InlineKeyboardBuilder()
+            board.add(types.InlineKeyboardButton(text="OK", callback_data="OK")) 
+            await bot.send_message(
+                chat_id=user_id,
+                text="<b>НЕ ЗАПИСАНО</b>, можно продолжать",
+                parse_mode="HTML",
+                reply_markup=board.as_markup()
+            )
     elif message.text:
         
         description = message.text
         with sqlite3.connect('test.db') as con:
             cur = con.cursor()
-            cur.execute(f'INSERT INTO data (us_idtg, us_text) VALUES (?, ?)', (user_id, description))
+            cur.execute(f'INSERT INTO data (us_idtg, us_text, us_datetime) VALUES (?, ?, ?)', (user_id, description, current_time))
             con.commit()
         board = InlineKeyboardBuilder()
         board.add(types.InlineKeyboardButton(text="OK", callback_data="OK")) 
