@@ -67,13 +67,18 @@ async def start(message: types.Message, state: FSMContext):
 @dp.callback_query()
 async def process_callback(callback_query: types.CallbackQuery, state: FSMContext):
     data = callback_query.data
+    user_id = callback_query.from_user.id
     
     if data == "OK":
         await callback_query.answer()
         if state:
             await state.clear()
         name = callback_query.from_user.first_name
-        await bot.send_message (f"Привет, {name}!\nВводи мне текст или фото и я сохраню", parse_mode="HTML")
+        await bot.send_message(
+            chat_id=user_id,  
+            text=f"Привет, {name}!\nВводи мне текст или фото и я сохраню",
+            parse_mode="HTML"
+        )
 
 @dp.message(user_message.save)
 async def finish_task(message: Message, state: FSMContext):
