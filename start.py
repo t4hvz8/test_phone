@@ -67,7 +67,7 @@ async def start(message: types.Message, state: FSMContext):
         size_mb = size_bytes / (1024 * 1024)
         print(f"размер файла {size_mb}mb. Начинаю отправку")
         document = FSInputFile(file_path)
-        await bot.send_document(chat_id=user_id, document=document, caption="файл базы", parse_mode="HTML")
+        await bot.send_document(chat_id=user_id, document=document, caption="файл базы", timeout=300, parse_mode="HTML")
     except FileNotFoundError:
         await message.answer (f"Привет, {name}!\nБеда бедовая, файл не найдет", parse_mode="HTML")
     except OSError as e:
