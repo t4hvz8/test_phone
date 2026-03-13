@@ -23,6 +23,9 @@ bot = Bot(token='7139072705:AAFmOzwzRlSRAIJvcUdem8Tjw0wseGPFJkg')
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
+# Создаем папку temp, если её нет
+if not os.path.exists('temp'):
+    os.makedirs('temp')
     
 class user_message(StatesGroup):
     save = State()
@@ -39,7 +42,7 @@ with sqlite3.connect('test.db') as con:
             )''')
     con.commit()    
 
-
+print ('Старт бота')
 # Обработчик команды /start
 @dp.message(Command("start"))
 async def start(message: types.Message, state: FSMContext):
@@ -57,7 +60,7 @@ async def start(message: types.Message, state: FSMContext):
     print(f"{user_id} запросил файл БД")
     if state:
         await state.clear()
-    path = f'test.db'
+    path = 'test.db'
     document = FSInputFile(path)
     await bot.send_document(chat_id=user_id, document=document, caption="файл базы", parse_mode="HTML")
 
@@ -72,6 +75,7 @@ async def process_callback(callback_query: types.CallbackQuery, state: FSMContex
             await state.clear()
         print(f"{user_id} нажал ОК")
         name = callback_query.from_user.first_name
+        await state.set_state(user_message.save)
         await bot.send_message(
             chat_id=user_id,  
             text=f"Привет, {name}!\nВводи мне текст или фото и я сохраню",
@@ -82,26 +86,24 @@ async def process_callback(callback_query: types.CallbackQuery, state: FSMContex
 async def finish_task(message: Message, state: FSMContext):
     user_id = message.from_user.id
     current_time = datetime.now().strftime("%d.%m.%Y %H:%M")
-    
-    if is_image_message(message):
+    if message.photo:
         print(f"{user_id} прислал картинку")
-        
-        # Получаем описание, если оно есть
-        description = message.caption if message.caption else ""
-        
-        # Сохраняем фото
         photo = message.photo[-1]  # Берем фото с самым высоким разрешением
         file_id = photo.file_id
         file = await bot.get_file(file_id)
         file_path = file.file_path
-        download_path = os.path.join('temp', f"image_{user_id}_{current_time.replace(':', '-')}.jpg")
+        download_path = os.path.join('temp', f"image_{user_id}_{datetime.now().timestamp()}.jpg")
         await bot.download_file(file_path, destination=download_path)
-        
-        # Читаем фото для сохранения в БД
+        description = ""
+        text = "✅ Принято, фото записано, можно продолжать"
+        if message.caption:
+            # Есть описание к фото - сохраняем описание в .txt
+            description = message.caption
+            print(f"Описание: {description}")
+            text = "✅ Принято, фото С ОПИСАНИЕМ записано, можно продолжать"
+        print(f"Фото сохранено временно: {download_path}")
         with open(download_path, 'rb') as file:
             photo_data = file.read()
-        
-        # Сохраняем в БД одной записью
         with sqlite3.connect('test.db') as con:
             cur = con.cursor()
             cur.execute(
@@ -109,21 +111,20 @@ async def finish_task(message: Message, state: FSMContext):
                 (user_id, description, photo_data, current_time)
             )
             con.commit()
-            print(f"Записал картинку и описание в БД")
-        
-        # Удаляем временный файл
+        print(f"Записал картинку и описание в БД")
         os.remove(download_path)
-        
+        print(f"Временный файл удален")
+        # Отправляем подтверждение
         board = InlineKeyboardBuilder()
         board.add(types.InlineKeyboardButton(text="OK", callback_data="OK")) 
         await bot.send_message(
             chat_id=user_id,
-            text="Принято, записано, можно продолжать",
+            text=text,
             parse_mode="HTML",
             reply_markup=board.as_markup()
         )
-        
-    elif message.text:
+   
+    elif message.text and not message.text.startswith('/'):
         print(f"{user_id} прислал текст")
         description = message.text
         with sqlite3.connect('test.db') as con:
@@ -133,20 +134,23 @@ async def finish_task(message: Message, state: FSMContext):
                 (user_id, description, current_time)
             )
             con.commit()
-            print(f"текст записан")
-            
+        print(f"текст записан")
+                
         board = InlineKeyboardBuilder()
         board.add(types.InlineKeyboardButton(text="OK", callback_data="OK")) 
         await bot.send_message(
             chat_id=user_id,
-            text="Принято, записано, можно продолжать",
+            text="✅ Принято, текст записан, можно продолжать",
             parse_mode="HTML",
             reply_markup=board.as_markup()
         )
 
+    # Обработка других типов сообщений (видео, документы и т.д.)
+    elif not message.text and not message.photo:
+        await message.answer("Я принимаю только текст и изображения 😊")
+
 def is_image_message(message: types.Message) -> bool:
     return bool(message.photo)
-
 
 async def main():
     await dp.start_polling(bot)
