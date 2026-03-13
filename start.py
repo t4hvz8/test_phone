@@ -49,7 +49,7 @@ async def start(message: types.Message, state: FSMContext):
         await state.clear()
     name = message.chat.first_name
     await state.set_state(user_message.save)
-    await message.answer (f"Привет, {name}!\nВоди мне текст или фото и я сохраню", parse_mode="HTML")
+    await message.answer (f"Привет, {name}!\nВводи мне текст или фото и я сохраню", parse_mode="HTML")
 
 @dp.message(Command("file"))
 async def start(message: types.Message, state: FSMContext):
@@ -62,7 +62,7 @@ async def start(message: types.Message, state: FSMContext):
 
     name = message.chat.first_name
     await state.set_state(user_message.save)
-    await message.answer (f"Привет, {name}!\nВоди мне текст или фото и я сохраню", parse_mode="HTML")
+    await message.answer (f"Привет, {name}!\nВводи мне текст или фото и я сохраню", parse_mode="HTML")
 
 @dp.callback_query()
 async def process_callback(callback_query: types.CallbackQuery, state: FSMContext):
@@ -73,7 +73,7 @@ async def process_callback(callback_query: types.CallbackQuery, state: FSMContex
         if state:
             await state.clear()
         name = callback_query.from_user.first_name
-        await bot.send_message (f"Привет, {name}!\nВоди мне текст или фото и я сохраню", parse_mode="HTML")
+        await bot.send_message (f"Привет, {name}!\nВводи мне текст или фото и я сохраню", parse_mode="HTML")
 
 @dp.message(user_message.save)
 async def finish_task(message: Message, state: FSMContext):
@@ -106,10 +106,11 @@ async def finish_task(message: Message, state: FSMContext):
             )
 
     elif message.text:
+        
         description = message.text
         with sqlite3.connect('test.db') as con:
             cur = con.cursor()
-            cur.execute(f'INSERT INTO data (us_idtg, us_text) VALUES (?)', (user_id, description))
+            cur.execute(f'INSERT INTO data (us_idtg, us_text) VALUES (?, ?)', (user_id, description))
             con.commit()
         board = InlineKeyboardBuilder()
         board.add(types.InlineKeyboardButton(text="OK", callback_data="OK")) 
