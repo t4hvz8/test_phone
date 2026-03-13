@@ -132,9 +132,12 @@ def save_finish_photo(user_id):
         photo = file.read()
     with sqlite3.connect(f'test.db') as con:
         cur = con.cursor()
-        cur.execute(f'INSERT INTO data (us_blob) VALUES (?)', [photo])
+        done = cur.execute(f'INSERT INTO data (us_blob) VALUES (?)', [photo])
         con.commit()
-    return True
+    if done:
+        return True
+    else:
+        return False
 
 
 
