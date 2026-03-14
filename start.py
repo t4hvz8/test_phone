@@ -21,7 +21,7 @@ from aiohttp import ClientTimeout
 
 from datetime import datetime
 
-session = AiohttpSession(timeout=ClientTimeout(total=300))
+session = AiohttpSession(timeout=300)
 # Инициализация бота и диспетчера
 bot = Bot(token='7139072705:AAFmOzwzRlSRAIJvcUdem8Tjw0wseGPFJkg', session=session)
 storage = MemoryStorage()
