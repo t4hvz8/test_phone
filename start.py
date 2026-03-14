@@ -16,10 +16,14 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types.input_file import FSInputFile
 from aiogram.types import Message
 
+from aiogram.client.session.aiohttp import AiohttpSession
+from aiohttp import ClientTimeout
+
 from datetime import datetime
 
+session = AiohttpSession(timeout=ClientTimeout(total=300))
 # Инициализация бота и диспетчера
-bot = Bot(token='7139072705:AAFmOzwzRlSRAIJvcUdem8Tjw0wseGPFJkg', timeout=300)
+bot = Bot(token='7139072705:AAFmOzwzRlSRAIJvcUdem8Tjw0wseGPFJkg', session=session)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
