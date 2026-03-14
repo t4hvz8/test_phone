@@ -27,14 +27,15 @@ bot = Bot(token='7139072705:AAFmOzwzRlSRAIJvcUdem8Tjw0wseGPFJkg', session=sessio
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
-# Создаем папку temp, если её нет
 if not os.path.exists('temp'):
     os.makedirs('temp')
+if not os.path.exists('data'):
+    os.makedirs('data')
     
 class user_message(StatesGroup):
     save = State()
 
-with sqlite3.connect('test.db') as con:
+with sqlite3.connect('data/test.db') as con:
     cur = con.cursor()
     cur.execute('''
     CREATE TABLE IF NOT EXISTS data(
@@ -44,7 +45,8 @@ with sqlite3.connect('test.db') as con:
             us_blob BLOB,
             us_datetime VARCHAR (30)
             )''')
-    con.commit()    
+    con.commit()
+    print ('Создал базу')    
 
 print ('Старт бота')
 # Обработчик команды /start
@@ -65,7 +67,7 @@ async def start(message: types.Message, state: FSMContext):
     print(f"{user_id} запросил файл БД")
     if state:
         await state.clear()
-    file_path = "test.db"
+    file_path = "data/test.db"
     try:
         size_bytes = os.path.getsize(file_path)
         size_mb = size_bytes / (1024 * 1024)
@@ -118,7 +120,7 @@ async def finish_task(message: Message, state: FSMContext):
         print(f"Фото сохранено временно: {download_path}")
         with open(download_path, 'rb') as file:
             photo_data = file.read()
-        with sqlite3.connect('test.db') as con:
+        with sqlite3.connect('data/test.db') as con:
             cur = con.cursor()
             cur.execute(
                 'INSERT INTO data (us_idtg, us_text, us_blob, us_datetime) VALUES (?, ?, ?, ?)', 
@@ -141,7 +143,7 @@ async def finish_task(message: Message, state: FSMContext):
     elif message.text and not message.text.startswith('/'):
         print(f"{user_id} прислал текст")
         description = message.text
-        with sqlite3.connect('test.db') as con:
+        with sqlite3.connect('data/test.db') as con:
             cur = con.cursor()
             cur.execute(
                 'INSERT INTO data (us_idtg, us_text, us_datetime) VALUES (?, ?, ?)', 
